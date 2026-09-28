@@ -73,8 +73,8 @@ func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("output u
 func TestRunReportWriteErrorIsReported(t *testing.T) {
 	var stderr bytes.Buffer
 	scanFn := func(context.Context) check.Report { return check.Report{} }
-	if code := run(context.Background(), []string{"scan"}, failingWriter{}, &stderr, scanFn); code != 0 {
-		t.Errorf("run() exit code = %d, want 0", code)
+	if code := run(context.Background(), []string{"scan"}, failingWriter{}, &stderr, scanFn); code != 1 {
+		t.Errorf("run() exit code = %d, want 1", code)
 	}
 	if !strings.Contains(stderr.String(), "cannot write report: output unavailable") {
 		t.Errorf("missing report write error: %q", stderr.String())
