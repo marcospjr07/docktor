@@ -4,6 +4,7 @@ package linux
 import (
 	"context"
 	"os"
+	"os/exec"
 	"syscall"
 
 	"github.com/marcospjr07/docktor/internal/check"
@@ -21,11 +22,20 @@ type filesystemStats struct {
 
 // Checks returns the initial diagnostics in display order.
 func Checks() []check.Check {
+	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
+	dockerSocket := resolveDockerSocket(os.Getenv("DOCKER_HOST"), runtimeDir)
 	return []check.Check{
 		osCheck{readFile: os.ReadFile},
 		uptimeCheck{readFile: os.ReadFile},
 		memoryCheck{readFile: os.ReadFile},
 		diskCheck{statFS: readFilesystem},
+		dockerCheck{
+			socketPath: dockerSocket,
+			scope:      dockerSocketSystemdScope(dockerSocket, runtimeDir),
+			unitState:  systemctlDockerUnitState,
+			dialSocket: dialLocalDockerSocket,
+			lookPath:   exec.LookPath,
+		},
 	}
 }
 
