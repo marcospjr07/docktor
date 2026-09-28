@@ -26,6 +26,7 @@ func Checks() []check.Check {
 		uptimeCheck{readFile: os.ReadFile},
 		memoryCheck{readFile: os.ReadFile},
 		diskCheck{statFS: readFilesystem},
+		dockerCheck{runCommand: runDockerCommand},
 	}
 }
 

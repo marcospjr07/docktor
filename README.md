@@ -18,7 +18,7 @@ The example is illustrative; results depend on the host. Memory and disk usage w
 
 ## Read-only philosophy
 
-Diagnostics must never change system configuration. The current checks only read `/etc/os-release` (or `/usr/lib/os-release`), `/proc/uptime`, `/proc/meminfo`, and root filesystem statistics. Docktor needs no elevated privileges for these checks. Future checks must preserve this rule, including when they inspect Docker, systemd, SSH, or firewall state.
+Diagnostics must never change system configuration. The current checks read `/etc/os-release` (or `/usr/lib/os-release`), `/proc/uptime`, `/proc/meminfo`, and root filesystem statistics, and query Docker with `docker version --format '{{.Server.Version}}'`. Docktor needs no elevated privileges, though Docker socket permissions may limit the Docker check. Future checks must preserve this rule, including when they inspect systemd, SSH, or firewall state.
 
 ## Current scope
 
@@ -26,9 +26,10 @@ Diagnostics must never change system configuration. The current checks only read
 - Uptime from procfs.
 - Memory utilization using `MemTotal` and `MemAvailable` from procfs.
 - Root filesystem utilization from `statfs`, with reserved blocks accounted for in the percentage available to a regular user.
+- Docker CLI availability and daemon reachability through the current Docker CLI context.
 - Plain terminal output with pass, warn, and fail counts.
 
-The initial version uses only the Go standard library. It does not run shell commands or make configuration changes.
+The initial version uses only the Go standard library. The Docker check runs one read-only CLI command directly, without a shell. No check makes configuration changes.
 
 ## Build and develop
 
@@ -48,4 +49,4 @@ make check
 
 ## Roadmap
 
-Add independent, read-only checks for Docker, systemd, SSH, firewall, package updates, and networking. Add JSON output for scripts while keeping check results independent of presentation.
+Add independent, read-only checks for systemd, SSH, firewall, package updates, and networking. Add JSON output for scripts while keeping check results independent of presentation.
