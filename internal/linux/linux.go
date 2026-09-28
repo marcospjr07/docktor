@@ -29,6 +29,7 @@ func Checks() []check.Check {
 		uptimeCheck{readFile: os.ReadFile},
 		memoryCheck{readFile: os.ReadFile},
 		diskCheck{statFS: readFilesystem},
+		systemdCheck{runSystemctl: runSystemctl, timeout: systemdQueryTimeout},
 		dockerCheck{
 			socketPath: dockerSocket,
 			scope:      dockerSocketSystemdScope(dockerSocket, runtimeDir),

@@ -1,11 +1,9 @@
 package linux
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -101,6 +99,10 @@ func (c dockerCheck) socketActivationWarning(ctx context.Context) (check.Result,
 }
 
 func systemctlDockerUnitState(ctx context.Context, scope dockerSystemdScope, unit string) (string, error) {
+	return queryDockerUnitState(ctx, scope, unit, runSystemctl)
+}
+
+func queryDockerUnitState(ctx context.Context, scope dockerSystemdScope, unit string, run systemctlRunner) (string, error) {
 	var flag string
 	switch scope {
 	case dockerSystemSystemd:
@@ -110,25 +112,11 @@ func systemctlDockerUnitState(ctx context.Context, scope dockerSystemdScope, uni
 	default:
 		return "", fmt.Errorf("invalid Docker systemd scope %d", scope)
 	}
-	cmd := exec.CommandContext(ctx, "/usr/bin/systemctl", flag, "show", "--property=ActiveState", "--value", "--no-pager", "--", unit)
-	// Inherited D-Bus addresses must not redirect this state check to another manager.
-	for _, entry := range os.Environ() {
-		if strings.HasPrefix(entry, "DBUS_SESSION_BUS_ADDRESS=") || strings.HasPrefix(entry, "DBUS_SYSTEM_BUS_ADDRESS=") {
-			continue
-		}
-		cmd.Env = append(cmd.Env, entry)
-	}
-	cmd.WaitDelay = 200 * time.Millisecond
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
+	output, err := run(ctx, flag, "show", "--property=ActiveState", "--value", "--no-pager", "--", unit)
+	if err != nil {
 		return "", fmt.Errorf("systemctl show %s: %w", unit, err)
 	}
-	if stderr.Len() != 0 {
-		return "", fmt.Errorf("systemctl show %s wrote to stderr", unit)
-	}
-	state := strings.TrimSpace(stdout.String())
+	state := strings.TrimSpace(string(output))
 	if state == "" || strings.ContainsAny(state, "\r\n") {
 		return "", fmt.Errorf("systemctl show %s returned an invalid state", unit)
 	}
