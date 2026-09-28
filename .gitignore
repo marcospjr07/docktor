@@ -1,0 +1,6 @@
+/bin/
+/dist/
+/docktor
+/coverage.out
+*.test
+.DS_Store

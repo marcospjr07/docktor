@@ -1,0 +1,58 @@
+// Package linux contains read-only diagnostics backed by Linux system data.
+package linux
+
+import (
+	"context"
+	"os"
+	"syscall"
+
+	"github.com/marcospjr07/docktor/internal/check"
+)
+
+type readFileFunc func(string) ([]byte, error)
+type statFSFunc func(string) (filesystemStats, error)
+
+type filesystemStats struct {
+	blockSize uint64
+	blocks    uint64
+	free      uint64
+	available uint64
+}
+
+// Checks returns the initial diagnostics in display order.
+func Checks() []check.Check {
+	return []check.Check{
+		osCheck{readFile: os.ReadFile},
+		uptimeCheck{readFile: os.ReadFile},
+		memoryCheck{readFile: os.ReadFile},
+		diskCheck{statFS: readFilesystem},
+	}
+}
+
+func readFilesystem(path string) (filesystemStats, error) {
+	var raw syscall.Statfs_t
+	if err := syscall.Statfs(path, &raw); err != nil {
+		return filesystemStats{}, err
+	}
+
+	blockSize := raw.Frsize
+	if blockSize <= 0 {
+		blockSize = raw.Bsize
+	}
+	if blockSize <= 0 {
+		return filesystemStats{}, errInvalidFilesystem
+	}
+	return filesystemStats{
+		blockSize: uint64(blockSize),
+		blocks:    raw.Blocks,
+		free:      raw.Bfree,
+		available: raw.Bavail,
+	}, nil
+}
+
+func contextWarning(ctx context.Context) (check.Result, bool) {
+	if err := ctx.Err(); err != nil {
+		return check.Result{Status: check.StatusWarn, Message: "scan interrupted: " + err.Error()}, true
+	}
+	return check.Result{}, false
+}
