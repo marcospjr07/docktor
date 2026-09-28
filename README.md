@@ -14,7 +14,7 @@ $ docktor scan
 Summary: 3 pass, 1 warn, 0 fail
 ```
 
-The example is illustrative; results depend on the host. Memory and disk usage warn at 80% and fail at 95%. A missing or invalid data source produces a warning so the other checks can still run. Exit status is 0 for a completed scan regardless of pass, warn, or fail findings; 1 for an operational or output error; and 2 for a usage error.
+The example is illustrative; results depend on the host. Memory and disk usage warn at 80% and fail at 95%. A missing or invalid data source produces a warning so the other checks can still run. In this initial version, only CLI usage errors return a nonzero exit status (2); health findings and report output errors return 0.
 
 ## Read-only philosophy
 

@@ -47,8 +47,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, scanFn fu
 		report := scanFn(ctx)
 		if err := reporter.WriteTerminal(stdout, report); err != nil {
 			fmt.Fprintf(stderr, "docktor: cannot write report: %v\n", err)
-			return 1
 		}
+		// In v0, only CLI usage errors produce a nonzero exit status.
 		return 0
 	default:
 		fmt.Fprintf(stderr, "docktor: unknown command %q\n", args[0])

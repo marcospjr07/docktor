@@ -1,6 +1,6 @@
 # Architecture and contribution guardrails
 
-- `cmd/docktor` owns CLI argument handling and exit codes: 0 for a completed scan regardless of pass/warn/fail findings, 1 for an operational or output error, and 2 for a usage error.
+- `cmd/docktor` owns CLI argument handling and exit codes. In v0, only CLI usage errors exit nonzero (2); health findings and report output errors exit 0.
 - `internal/check` defines `Status`, `Result`, `Check`, the ordered runner, and summary counts. Keep this package free of Linux and terminal details.
 - `internal/linux` contains read-only Linux checks. `internal/reporter` formats the resulting report. Add a new check through `linux.Checks()` without coupling it to the reporter.
 - Checks may read host data and query read-only system APIs. They must not write files, change configuration, restart services, or invoke commands with side effects.
