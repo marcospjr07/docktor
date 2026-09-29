@@ -134,7 +134,7 @@ func TestSystemdCheckCancellation(t *testing.T) {
 }
 
 func TestSystemdCheckRegistered(t *testing.T) {
-	want := []string{"OS", "Uptime", "Memory", "Root disk", "Systemd", "SSH", "Docker"}
+	want := []string{"OS", "Uptime", "Memory", "Root disk", "Systemd", "SSH", "Firewall", "Docker"}
 	checks := Checks()
 	names := make([]string, len(checks))
 	for i, diagnostic := range checks {
