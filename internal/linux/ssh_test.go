@@ -227,7 +227,7 @@ func TestSSHCheckCancellation(t *testing.T) {
 }
 
 func TestSSHCheckRegisteredInOrder(t *testing.T) {
-	want := []string{"OS", "Uptime", "Memory", "Root disk", "Systemd", "SSH", "Firewall", "Docker"}
+	want := []string{"OS", "Uptime", "Memory", "Root disk", "Systemd", "SSH", "Firewall", "Packages", "Docker"}
 	checks := Checks()
 	names := make([]string, len(checks))
 	for i, diagnostic := range checks {
