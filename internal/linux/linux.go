@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 
 	"github.com/marcospjr07/docktor/internal/check"
 )
@@ -32,6 +33,7 @@ func Checks() []check.Check {
 		systemdCheck{runSystemctl: runSystemctl, timeout: systemdQueryTimeout},
 		sshCheck{configPath: defaultSSHConfigPath, includeBase: sshIncludeBase, readFile: readSSHFile},
 		firewallCheck{lookPath: exec.LookPath, runCommand: runFirewallCommand, runSystemctl: runSystemctl},
+		packagesCheck{lookPath: exec.LookPath, runAPT: runAPTCommand, stat: os.Stat, now: time.Now},
 		dockerCheck{
 			socketPath: dockerSocket,
 			scope:      dockerSocketSystemdScope(dockerSocket, runtimeDir),
