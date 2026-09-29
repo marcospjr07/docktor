@@ -30,6 +30,7 @@ func Checks() []check.Check {
 		memoryCheck{readFile: os.ReadFile},
 		diskCheck{statFS: readFilesystem},
 		systemdCheck{runSystemctl: runSystemctl, timeout: systemdQueryTimeout},
+		sshCheck{configPath: defaultSSHConfigPath, includeBase: sshIncludeBase, readFile: readSSHFile},
 		dockerCheck{
 			socketPath: dockerSocket,
 			scope:      dockerSocketSystemdScope(dockerSocket, runtimeDir),
