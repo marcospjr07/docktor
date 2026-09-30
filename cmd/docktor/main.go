@@ -35,17 +35,29 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, scanFn fu
 		writeHelp(stdout)
 		return 0
 	case "scan":
-		if len(args) > 1 {
-			if len(args) == 2 && (args[1] == "--help" || args[1] == "-h") {
-				writeScanHelp(stdout)
-				return 0
+		jsonOutput, help := false, false
+		for _, arg := range args[1:] {
+			switch {
+			case arg == "--json" && !jsonOutput:
+				jsonOutput = true
+			case (arg == "--help" || arg == "-h") && !help:
+				help = true
+			default:
+				fmt.Fprintf(stderr, "docktor scan: unexpected argument %q\n", arg)
+				writeScanHelp(stderr)
+				return 2
 			}
-			fmt.Fprintf(stderr, "docktor scan: unexpected argument %q\n", args[1])
-			writeScanHelp(stderr)
-			return 2
+		}
+		if help {
+			writeScanHelp(stdout)
+			return 0
 		}
 		report := scanFn(ctx)
-		if err := reporter.WriteTerminal(stdout, report); err != nil {
+		writeReport := reporter.WriteTerminal
+		if jsonOutput {
+			writeReport = reporter.WriteJSON
+		}
+		if err := writeReport(stdout, report); err != nil {
 			fmt.Fprintf(stderr, "docktor: cannot write report: %v\n", err)
 			return 1
 		}
@@ -58,9 +70,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, scanFn fu
 }
 
 func writeHelp(w io.Writer) {
-	fmt.Fprint(w, "Docktor reads Linux server health indicators.\n\nUsage:\n  docktor scan\n  docktor --help\n\nCommands:\n  scan    Run read-only health diagnostics\n")
+	fmt.Fprint(w, "Docktor reads Linux server health indicators.\n\nUsage:\n  docktor scan [--json]\n  docktor --help\n\nCommands:\n  scan    Run read-only health diagnostics\n")
 }
 
 func writeScanHelp(w io.Writer) {
-	fmt.Fprint(w, "Usage: docktor scan\n\nRun read-only Linux health diagnostics and print a summary.\n")
+	fmt.Fprint(w, "Usage: docktor scan [--json]\n\nRun read-only Linux health diagnostics and print a summary.\n\nOptions:\n  --json  Write a JSON report instead of terminal output\n  --help  Show command help\n")
 }
