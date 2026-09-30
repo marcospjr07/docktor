@@ -2,7 +2,7 @@
 
 Docktor is a read-only health diagnostics CLI for Linux servers. `docktor scan` reports host indicators as terminal text by default. Use `docktor scan --json` for machine-readable output in automation.
 
-**🇧🇷 Looking for the Portuguese version? See [Docktor](https://github.com/marcospjr07/docktor-pt-br).**
+**🇧🇷 Looking for the Portuguese version? See [Docktor [pt-br]](https://github.com/marcospjr07/docktor-pt-br).**
 
 ## Example
 
