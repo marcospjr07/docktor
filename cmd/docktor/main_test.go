@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -11,31 +12,59 @@ import (
 )
 
 func TestRunCompletedScanReturnsZeroForEveryFinding(t *testing.T) {
-	for _, status := range []check.Status{check.StatusPass, check.StatusWarn, check.StatusFail} {
-		t.Run(string(status), func(t *testing.T) {
-			ctx := context.WithValue(context.Background(), contextKey{}, "scan context")
-			var stdout, stderr bytes.Buffer
-			called := false
-			scanFn := func(got context.Context) check.Report {
-				called = true
-				if got != ctx {
-					t.Error("scan did not receive the CLI context")
+	for _, args := range [][]string{{"scan"}, {"scan", "--json"}} {
+		for _, status := range []check.Status{check.StatusPass, check.StatusWarn, check.StatusFail} {
+			t.Run(strings.Join(args, " ")+"/"+string(status), func(t *testing.T) {
+				ctx := context.WithValue(context.Background(), contextKey{}, "scan context")
+				var stdout, stderr bytes.Buffer
+				calls := 0
+				scanFn := func(got context.Context) check.Report {
+					calls++
+					if got != ctx {
+						t.Error("scan did not receive the CLI context")
+					}
+					results := []check.Result{{Name: "Example", Status: status, Message: "finding"}}
+					return check.Report{Results: results, Summary: check.Summarize(results)}
 				}
-				results := []check.Result{{Name: "Example", Status: status, Message: "finding"}}
-				return check.Report{Results: results, Summary: check.Summarize(results)}
-			}
-			if code := run(ctx, []string{"scan"}, &stdout, &stderr, scanFn); code != 0 {
-				t.Errorf("run() exit code = %d, want 0", code)
-			}
-			if !called || !strings.Contains(stdout.String(), "Summary:") || stderr.Len() != 0 {
-				t.Errorf("unexpected scan output: called=%v, stdout=%q, stderr=%q", called, stdout.String(), stderr.String())
-			}
-		})
+				if code := run(ctx, args, &stdout, &stderr, scanFn); code != 0 {
+					t.Errorf("run() exit code = %d, want 0", code)
+				}
+				if calls != 1 || stderr.Len() != 0 {
+					t.Errorf("unexpected scan: calls=%d, stderr=%q", calls, stderr.String())
+				}
+				if len(args) == 1 {
+					if !strings.Contains(stdout.String(), "Summary:") {
+						t.Errorf("default output is not terminal text: %q", stdout.String())
+					}
+					return
+				}
+				var output struct {
+					Checks []struct {
+						Name    string `json:"name"`
+						Status  string `json:"status"`
+						Message string `json:"message"`
+					} `json:"checks"`
+					Summary struct {
+						Total int `json:"total"`
+					} `json:"summary"`
+				}
+				if err := json.Unmarshal(stdout.Bytes(), &output); err != nil {
+					t.Fatalf("stdout is not a single JSON report: %v; output: %q", err, stdout.String())
+				}
+				if len(output.Checks) != 1 || output.Checks[0].Name != "Example" || output.Checks[0].Status != string(status) ||
+					output.Checks[0].Message != "finding" || output.Summary.Total != 1 {
+					t.Fatalf("scan data missing from JSON report: %#v", output)
+				}
+			})
+		}
 	}
 }
 
 func TestRunHelpDoesNotScan(t *testing.T) {
-	for _, args := range [][]string{nil, {"--help"}, {"-h"}, {"help"}, {"scan", "--help"}, {"scan", "-h"}} {
+	for _, args := range [][]string{
+		nil, {"--help"}, {"-h"}, {"help"}, {"scan", "--help"}, {"scan", "-h"},
+		{"scan", "--json", "--help"}, {"scan", "--help", "--json"}, {"scan", "--json", "-h"},
+	} {
 		var stdout, stderr bytes.Buffer
 		scanFn := func(context.Context) check.Report {
 			t.Fatal("help executed a host scan")
@@ -44,14 +73,20 @@ func TestRunHelpDoesNotScan(t *testing.T) {
 		if code := run(context.Background(), args, &stdout, &stderr, scanFn); code != 0 {
 			t.Errorf("run(%v) exit code = %d, want 0", args, code)
 		}
-		if !strings.Contains(stdout.String(), "Usage:") || stderr.Len() != 0 {
+		if !strings.Contains(stdout.String(), "Usage:") || !strings.Contains(stdout.String(), "--json") || stderr.Len() != 0 {
 			t.Errorf("run(%v) output: stdout=%q, stderr=%q", args, stdout.String(), stderr.String())
 		}
 	}
 }
 
 func TestRunInvalidUsageReturnsTwo(t *testing.T) {
-	for _, args := range [][]string{{"unknown"}, {"scan", "extra"}, {"--help", "extra"}} {
+	for _, args := range [][]string{
+		{"unknown"}, {"scan", "extra"}, {"--help", "extra"}, {"--json", "scan"},
+		{"scan", "--unknown"}, {"scan", "--json", "extra"}, {"scan", "extra", "--json"},
+		{"scan", "--json", "--unknown"}, {"scan", "--json", "--json"}, {"scan", "--json=false"},
+		{"scan", "--help", "extra"}, {"scan", "--json", "--help", "extra"},
+		{"scan", "--help", "-h"},
+	} {
 		var stdout, stderr bytes.Buffer
 		scanFn := func(context.Context) check.Report {
 			t.Fatal("invalid usage executed a host scan")
@@ -60,8 +95,8 @@ func TestRunInvalidUsageReturnsTwo(t *testing.T) {
 		if code := run(context.Background(), args, &stdout, &stderr, scanFn); code != 2 {
 			t.Errorf("run(%v) exit code = %d, want 2", args, code)
 		}
-		if stderr.Len() == 0 {
-			t.Errorf("run(%v) did not explain the usage error", args)
+		if stdout.Len() != 0 || stderr.Len() == 0 {
+			t.Errorf("run(%v) usage error streams: stdout=%q, stderr=%q", args, stdout.String(), stderr.String())
 		}
 	}
 }
@@ -71,13 +106,15 @@ type failingWriter struct{}
 func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("output unavailable") }
 
 func TestRunReportWriteErrorIsReported(t *testing.T) {
-	var stderr bytes.Buffer
-	scanFn := func(context.Context) check.Report { return check.Report{} }
-	if code := run(context.Background(), []string{"scan"}, failingWriter{}, &stderr, scanFn); code != 1 {
-		t.Errorf("run() exit code = %d, want 1", code)
-	}
-	if !strings.Contains(stderr.String(), "cannot write report: output unavailable") {
-		t.Errorf("missing report write error: %q", stderr.String())
+	for _, args := range [][]string{{"scan"}, {"scan", "--json"}} {
+		var stderr bytes.Buffer
+		scanFn := func(context.Context) check.Report { return check.Report{} }
+		if code := run(context.Background(), args, failingWriter{}, &stderr, scanFn); code != 1 {
+			t.Errorf("run(%v) exit code = %d, want 1", args, code)
+		}
+		if !strings.Contains(stderr.String(), "cannot write report: output unavailable") {
+			t.Errorf("missing report write error for %v: %q", args, stderr.String())
+		}
 	}
 }
 

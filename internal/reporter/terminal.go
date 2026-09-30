@@ -1,4 +1,4 @@
-// Package reporter formats diagnostic reports for people.
+// Package reporter formats diagnostic reports for terminals and automation.
 package reporter
 
 import (
